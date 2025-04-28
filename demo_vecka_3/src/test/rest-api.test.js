@@ -19,8 +19,8 @@ beforeAll(async () => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      username: "Kallepelle",
-      password: "kallespassword",
+      username: "AgilaGrupp3",
+      password: "AgilaGrupp3",
     }),
   });
 
