@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    setupFiles: "./test/setup.js",
+    setupFiles: "../demo_vecka_3/src/test/setup.js",
   },
   server: {
     proxy: {
