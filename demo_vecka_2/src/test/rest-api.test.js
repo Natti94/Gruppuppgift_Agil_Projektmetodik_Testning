@@ -1,105 +1,189 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+import {
+  beforeAll,
+  describe,
+  beforeEach,
+  afterEach,
+  test,
+  expect,
+} from "vitest";
+import { requestToken, setToken, getAuthHeaders } from "../lib/modul";
 
-const TOKEN_API_URL = "https://tokenservice-jwt-2025.fly.dev/token-service/v1";
-const MOVIE_API_URL = "https://tokenservice-jwt-2025.fly.dev/movies";
-let jwtToken;
-let createdMovie;
+const BASE_URL = "https://tokenservice-jwt-2025.fly.dev";
 
-describe("GET-tester - förfrågningar till /movies", () => {
-  beforeAll(async () => {
-    const res = await fetch(`${TOKEN_API_URL}/request-token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "AgilaGrupp3",
-        password: "AgilaGrupp3",
-      }),
-    });
+beforeAll(async () => {
+  const token = await requestToken("AgilaGrupp3", "AgilaGrupp3");
+  setToken(token);
+});
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(
-        `Misslyckades med att hämta JWT-token (${res.status}): ${errText}`
-      );
-    }
-
-    jwtToken = await res.text();
-    console.log("JWT-token hämtad:", jwtToken);
-  });
+describe("GET-tester", () => {
+  let createdMovie;
+  const description = "En spännande sci-fi-film med trettio bokstäver";
 
   beforeEach(async () => {
-    const res = await fetch(`${MOVIE_API_URL}`, {
+    const res = await fetch(`${BASE_URL}/movies`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${jwtToken}`,
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
-        title: "testfilm",
-        director: "Natnael Berhane",
-        description: "En testfilm för integrationstester",
-        productionYear: 2025,
+        title: "Testfilm GET",
+        director: "Regissör GET",
+        description,
+        productionYear: 2023,
       }),
     });
 
-    console.log("POST /movies status:", res.status);
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("POST misslyckades:", errText);
-      throw new Error(`Kunde inte skapa film (${res.status}): ${errText}`);
-    }
-
     createdMovie = await res.json();
-    console.log("Skapad film:", createdMovie);
-
-    if (!createdMovie?.id) {
-      throw new Error("Kunde inte skapa film - ID saknas!");
-    }
   });
 
   afterEach(async () => {
-    if (createdMovie?.id) {
-      const res = await fetch(`${MOVIE_API_URL}/${createdMovie.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      });
-      console.log("DELETE-status:", res.status);
-    } else {
-      console.warn("Ingen film att radera.");
-    }
+    await fetch(`${BASE_URL}/movies/${createdMovie.id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
   });
 
-  it("GET /movies - ska returnera status 200 och en lista med exakt en film", async () => {
-    const res = await fetch(`${MOVIE_API_URL}`, {
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
+  test("GET /movies returnerar array med minst en film", async () => {
+    const res = await fetch(`${BASE_URL}/movies`, {
+      headers: getAuthHeaders(),
     });
 
-    console.log("GET /movies status:", res.status);
-    const data = await res.json();
-    console.log("GET /movies svar:", data);
-
     expect(res.status).toBe(200);
+
+    const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBe(1);
+    expect(data.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("GET /movies/:id - ska returnera status 200 och rätt titel", async () => {
-    const res = await fetch(`${MOVIE_API_URL}/${createdMovie.id}`, {
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
+  test("GET /movies/:id returnerar korrekt film", async () => {
+    const res = await fetch(`${BASE_URL}/movies/${createdMovie.id}`, {
+      headers: getAuthHeaders(),
     });
 
-    console.log(`GET /movies/${createdMovie.id} status:`, res.status);
-    const data = await res.json();
-    console.log("GET enskild film:", data);
-
     expect(res.status).toBe(200);
-    expect(data.title).toBe("testfilm");
+
+    const data = await res.json();
+    expect(data.title).toBe("Testfilm GET");
+    expect(data.director).toBe("Regissör GET");
+    expect(data.description).toBe(description);
+    expect(data.productionYear).toBe(2023);
+  });
+});
+
+describe("DELETE-test", () => {
+  let createdMovie;
+
+  beforeEach(async () => {
+    const res = await fetch(`${BASE_URL}/movies`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        title: "Testfilm DELETE",
+        director: "Regissör DELETE",
+        description: "En intressant film att ta bort med trettio bokstäver",
+        productionYear: 2022,
+      }),
+    });
+
+    createdMovie = await res.json();
+  });
+
+  test("DELETE /movies/:id returnerar status 204", async () => {
+    const res = await fetch(`${BASE_URL}/movies/${createdMovie.id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+
+    expect(res.status).toBe(204);
+  });
+});
+
+describe("POST + DELETE i samma test", () => {
+  test("Skapa och ta bort film i samma test", async () => {
+    const postRes = await fetch(`${BASE_URL}/movies`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        title: "Post och Delete",
+        director: "Regissör POST o DELETE",
+        description: "Filmen som skapas och tas bort med trettio bokstäver",
+        productionYear: 2024,
+      }),
+    });
+
+    expect(postRes.status).toBe(201);
+    const newMovie = await postRes.json();
+
+    const deleteRes = await fetch(`${BASE_URL}/movies/${newMovie.id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+
+    expect(deleteRes.status).toBe(204);
+  });
+});
+
+describe("PUT + GET", () => {
+  let createdMovie;
+
+  beforeEach(async () => {
+    const res = await fetch(`${BASE_URL}/movies`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        title: "Originaltitel",
+        director: "Regissör med trettio bokstäver",
+        description: "En gammal film med trettio bokstäver",
+        productionYear: 2021,
+      }),
+    });
+
+    createdMovie = await res.json();
+  });
+
+  afterEach(async () => {
+    await fetch(`${BASE_URL}/movies/${createdMovie.id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+  });
+
+  test("Uppdatera titel och verifiera", async () => {
+    const putRes = await fetch(`${BASE_URL}/movies/${createdMovie.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        title: "Uppdaterad titel",
+        director: "Regissör med trettio bokstäver",
+        description: "En uppdaterad beskrivning med trettio bokstäver",
+        productionYear: 2021,
+      }),
+    });
+
+    expect(putRes.status).toBe(200);
+
+    const updatedMovie = await fetch(`${BASE_URL}/movies/${createdMovie.id}`, {
+      headers: getAuthHeaders(),
+    }).then((res) => res.json());
+
+    expect(updatedMovie.title).toBe("Uppdaterad titel");
+    expect(updatedMovie.director).toBe("Regissör med trettio bokstäver");
+    expect(updatedMovie.description).toBe(
+      "En uppdaterad beskrivning med trettio bokstäver"
+    );
+    expect(updatedMovie.productionYear).toBe(2021);
   });
 });

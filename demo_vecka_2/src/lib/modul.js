@@ -1,3 +1,4 @@
+
 const BASE_URL = "https://tokenservice-jwt-2025.fly.dev";
 
 let jwtToken = "";
@@ -6,9 +7,8 @@ export function setToken(token) {
   jwtToken = token;
 }
 
-function getHeaders() {
+export function getAuthHeaders() {
   return {
-    "Content-Type": "application/json",
     Authorization: `Bearer ${jwtToken}`,
   };
 }
@@ -39,9 +39,19 @@ export async function readToken(id) {
     `${BASE_URL}/token-service/v1/request-token/${id}`,
     {
       method: "GET",
-      headers: getHeaders(),
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
     }
   );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Kunde inte läsa token: ${response.status} – ${errorText}`
+    );
+  }
 
   return response.json();
 }
