@@ -1,2 +1,2 @@
-# Gruppuppgift_Agil_Projektmetodik_Testning
+# Agil Projektmetodik och Testning, flera projekt med dokumentation och Vitest-Tester
 Månadsprojekt (Skolarbete)
